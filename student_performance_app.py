@@ -1,56 +1,72 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.neural_network import MLPClassifier
-from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
-st.title("Student Performance Predictor")
+# Mock dataset generation
+def generate_mock_data(n=200):
+    np.random.seed(42)
+    data = pd.DataFrame({
+        'Study Hours': np.random.randint(0, 15, n),
+        'Sleep Hours': np.random.randint(3, 10, n),
+        'Attendance Rate': np.random.randint(50, 100, n),
+        'Class Participation': np.random.randint(1, 10, n),
+        'Assignments Completed': np.random.randint(1, 10, n),
+        'Gadget Usage (hrs)': np.random.randint(0, 12, n),
+        'Likely to Pass': np.random.randint(0, 2, n)
+    })
+    return data
 
-# User inputs
-study_hours = st.slider("Study Hours per Day", 0, 12, 4)
-attendance = st.slider("Attendance (%)", 0, 100, 80)
-assignments_done = st.slider("Assignments Done (%)", 0, 100, 85)
-internet_usage = st.slider("Internet Usage for Study (%)", 0, 100, 60)
-sleep_hours = st.slider("Sleep Hours", 0, 12, 7)
-
-# Simulate realistic data
-def generate_data(n=300):
-    data = []
-    for _ in range(n):
-        sh = np.random.randint(0, 13)
-        at = np.random.randint(50, 101)
-        ad = np.random.randint(50, 101)
-        iu = np.random.randint(0, 101)
-        sl = np.random.randint(4, 10)
-
-        score = (sh * 0.4) + (at * 0.2) + (ad * 0.2) + (iu * 0.05) + (sl * 0.15)
-        label = 1 if score > 40 else 0  # more realistic boundary
-        data.append([sh, at, ad, iu, sl, label])
-
-    df = pd.DataFrame(data, columns=[
-        "study_hours", "attendance", "assignments_done", "internet_usage", "sleep_hours", "performance"
-    ])
-    return df
-
-df = generate_data()
-
-X = df.drop("performance", axis=1)
-y = df["performance"]
+# Load and preprocess data
+data = generate_mock_data()
+X = data.drop("Likely to Pass", axis=1)
+y = data["Likely to Pass"]
 
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
-model = MLPClassifier(hidden_layer_sizes=(16, 8), max_iter=500, random_state=42)
-model.fit(X_scaled, y)
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
-# User input prediction
-input_data = pd.DataFrame([[
-    study_hours, attendance, assignments_done, internet_usage, sleep_hours
-]], columns=X.columns)
-input_scaled = scaler.transform(input_data)
-pred = model.predict(input_scaled)[0]
-result = "Likely to Pass" if pred == 1 else "Needs Improvement"
+# Train the Gradient Boosting model
+model = GradientBoostingClassifier()
+model.fit(X_train, y_train)
+
+# Evaluate model
+y_pred = model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+
+# Streamlit App UI
+st.title("Student Performance Predictor")
+
+st.sidebar.header("Enter Student Details")
+study_hours = st.sidebar.slider("Study Hours per Day", 0, 15, 5)
+sleep_hours = st.sidebar.slider("Sleep Hours per Day", 3, 10, 7)
+attendance = st.sidebar.slider("Attendance Rate (%)", 50, 100, 85)
+participation = st.sidebar.slider("Class Participation (1-10)", 1, 10, 5)
+assignments = st.sidebar.slider("Assignments Completed (1-10)", 1, 10, 8)
+gadget_use = st.sidebar.slider("Gadget Use (hrs/day)", 0, 12, 3)
 
 if st.button("Predict"):
-    st.success(f"Prediction: {result}")
+    input_data = pd.DataFrame([[study_hours, sleep_hours, attendance, participation, assignments, gadget_use]],
+                              columns=X.columns)
+    input_scaled = scaler.transform(input_data)
+    prediction = model.predict(input_scaled)
+
+    st.subheader("Prediction Result")
+    if prediction[0] == 1:
+        st.success("Likely to Pass")
+    else:
+        st.error("Needs Improvement")
+
+    st.subheader("Model Evaluation Metrics")
+    st.write(f"**Accuracy:** {accuracy:.2f}")
+    st.write(f"**Precision:** {precision:.2f}")
+    st.write(f"**Recall:** {recall:.2f}")
+    st.write(f"**F1 Score:** {f1:.2f}")
