@@ -25,7 +25,7 @@ def generate_data(n=300):
         sl = np.random.randint(4, 10)
 
         score = (sh * 0.4) + (at * 0.2) + (ad * 0.2) + (iu * 0.05) + (sl * 0.15)
-        label = 1 if score > 60 else 0  # more realistic boundary
+        label = 1 if score > 40 else 0  # more realistic boundary
         data.append([sh, at, ad, iu, sl, label])
 
     df = pd.DataFrame(data, columns=[
